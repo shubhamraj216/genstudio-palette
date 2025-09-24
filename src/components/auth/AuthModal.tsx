@@ -1,4 +1,5 @@
-import { useState } from "react";
+// src/components/auth/AuthModal.tsx
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -6,26 +7,28 @@ import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { 
-  Eye, 
-  EyeOff, 
-  Mail, 
-  Lock, 
+import {
+  Eye,
+  EyeOff,
+  Mail,
+  Lock,
   Sparkles,
   AlertCircle,
-  CheckCircle
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialMode?: "login" | "signup" | "forgot-password" | "guest";
 }
 
-type AuthMode = 'login' | 'signup' | 'forgot-password' | 'guest';
+type AuthMode = "login" | "signup" | "forgot-password" | "guest";
 
-export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
-  const [mode, setMode] = useState<AuthMode>('login');
+export default function AuthModal({ isOpen, onClose, initialMode }: AuthModalProps) {
+  const { user, login, signup, guest } = useAuth();
+  const [mode, setMode] = useState<AuthMode>(initialMode ?? "login");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -35,96 +38,151 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
     email: "",
     password: "",
     confirmPassword: "",
+    firstName: "",
+    lastName: "",
   });
 
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+  useEffect(() => {
+    if (isOpen && initialMode) setMode(initialMode);
+    if (!isOpen) {
+      // reset on close
+      setFormData({ email: "", password: "", confirmPassword: "", firstName: "", lastName: "" });
+      setError("");
+      setShowPassword(false);
+      setIsLoading(false);
+    }
+  }, [isOpen, initialMode]);
+
+  useEffect(() => {
+    // if user becomes available (signed in elsewhere) auto-close modal
+    if (user && isOpen) {
+      onClose();
+    }
+  }, [user, isOpen, onClose]);
+
+  const setField = (k: keyof typeof formData, v: string) => {
+    setFormData(prev => ({ ...prev, [k]: v }));
     if (error) setError("");
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSignup = async () => {
+    if (!formData.email) return setError("Email is required");
+    if (!formData.firstName) return setError("First name required");
+    if (!formData.lastName) return setError("Last name required");
+    if (!formData.password) return setError("Password is required");
+    if (formData.password !== formData.confirmPassword) return setError("Passwords do not match");
+
     setIsLoading(true);
     setError("");
-
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      if (mode === 'signup') {
-        if (formData.password !== formData.confirmPassword) {
-          setError("Passwords don't match");
-          return;
-        }
-        toast({
-          title: "Account Created",
-          description: "Check your inbox to verify your email address.",
-        });
-      } else if (mode === 'login') {
-        toast({
-          title: "Welcome back!",
-          description: "You've been successfully logged in.",
-        });
-        onClose();
-      } else if (mode === 'forgot-password') {
-        toast({
-          title: "Reset Link Sent",
-          description: "Check your email for password reset instructions.",
-        });
-        setMode('login');
-      }
-    } catch (err) {
-      setError("Something went wrong. Please try again.");
+      await signup(formData.email, formData.password, formData.firstName, formData.lastName);
+      toast({ title: "Account Created", description: "You're signed in." });
+      onClose();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleGoogleAuth = () => {
+  const handleLogin = async () => {
+    if (!formData.email) return setError("Email is required");
+    if (!formData.password) return setError("Password is required");
+
     setIsLoading(true);
-    // Simulate OAuth
-    setTimeout(() => {
-      toast({
-        title: "Welcome!",
-        description: "You've been successfully signed in with Google.",
-      });
-      setIsLoading(false);
+    setError("");
+    try {
+      await login(formData.email, formData.password);
+      toast({ title: "Welcome back!", description: "You're signed in." });
       onClose();
-    }, 1000);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleGuestMode = () => {
-    toast({
-      title: "Guest Mode",
-      description: "You have 5 free generations remaining.",
-    });
-    onClose();
+  const handleGuest = async () => {
+    setIsLoading(true);
+    setError("");
+    try {
+      await guest();
+      toast({ title: "Guest Mode", description: "Limited quota available." });
+      onClose();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleForgot = async () => {
+    if (!formData.email) return setError("Email is required");
+    setIsLoading(true);
+    setError("");
+    try {
+      // backend expects JSON string body (we match existing API)
+      const res = await fetch(`${(process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000").replace(/\/$/, "")}/api/auth/forgot-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData.email),
+      });
+      const text = await res.text();
+      if (!res.ok) throw new Error(text || "Request failed");
+      // server may return reset token for testing
+      try {
+        const parsed = JSON.parse(text || "{}");
+        if (parsed.reset_token) {
+          toast({ title: "Reset Link Sent", description: `Reset token: ${parsed.reset_token}` });
+        } else {
+          toast({ title: "Reset Link Sent", description: "Check your email." });
+        }
+      } catch {
+        toast({ title: "Reset Link Sent", description: "Check your email." });
+      }
+      setMode("login");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    setError("");
+    if (mode === "signup") return await handleSignup();
+    if (mode === "login") return await handleLogin();
+    if (mode === "forgot-password") return await handleForgot();
+    if (mode === "guest") return await handleGuest();
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md">
         <div className="space-y-6">
-          {/* Header */}
           <div className="text-center">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-primary mx-auto mb-4">
               <Sparkles className="h-6 w-6 text-primary-foreground" />
             </div>
             <h2 className="text-2xl font-semibold">
-              {mode === 'login' && "Welcome back"}
-              {mode === 'signup' && "Create account"}
-              {mode === 'forgot-password' && "Reset password"}
-              {mode === 'guest' && "Try as guest"}
+              {mode === "login" && "Welcome back"}
+              {mode === "signup" && "Create account"}
+              {mode === "forgot-password" && "Reset password"}
+              {mode === "guest" && "Try as guest"}
             </h2>
             <p className="text-sm text-muted-foreground mt-2">
-              {mode === 'login' && "Sign in to your account to continue"}
-              {mode === 'signup' && "Get started with your free account"}
-              {mode === 'forgot-password' && "Enter your email to reset your password"}
-              {mode === 'guest' && "Limited to 5 generations per session"}
+              {mode === "login" && "Sign in to your account to continue"}
+              {mode === "signup" && "Get started with your free account"}
+              {mode === "forgot-password" && "Enter your email to reset your password"}
+              {mode === "guest" && "Limited to 5 generations per session"}
             </p>
           </div>
 
-          {/* Error Alert */}
           {error && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
@@ -132,8 +190,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
             </Alert>
           )}
 
-          {/* Guest Mode */}
-          {mode === 'guest' ? (
+          {mode === "guest" ? (
             <div className="space-y-4">
               <Card className="p-4 bg-muted/50">
                 <div className="flex items-center gap-3 mb-3">
@@ -151,135 +208,77 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                   <li>• No cloud storage</li>
                 </ul>
               </Card>
-              
+
               <div className="flex gap-3">
-                <Button 
-                  variant="outline" 
-                  className="flex-1"
-                  onClick={() => setMode('signup')}
-                >
+                <Button variant="outline" className="flex-1" onClick={() => setMode("signup")} disabled={isLoading}>
                   Create Account
                 </Button>
-                <Button 
-                  variant="gradient" 
-                  className="flex-1"
-                  onClick={handleGuestMode}
-                >
+                <Button variant="gradient" className="flex-1" onClick={handleGuest} disabled={isLoading}>
                   Continue as Guest
                 </Button>
               </div>
             </div>
           ) : (
             <>
-              {/* OAuth Button */}
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={handleGoogleAuth}
-                disabled={isLoading}
-              >
-                <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
-                  <path
-                    fill="currentColor"
-                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                  />
-                  <path
-                    fill="currentColor"
-                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                  />
-                  <path
-                    fill="currentColor"
-                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                  />
-                  <path
-                    fill="currentColor"
-                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                  />
-                </svg>
-                Continue with Google
-              </Button>
+              {/*<Button variant="outline" className="w-full" onClick={() => toast({ title: "Not configured", description: "OAuth not configured." })} disabled={isLoading}>*/}
+              {/*  Continue with Google*/}
+              {/*</Button>*/}
 
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <Separator />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
-                </div>
-              </div>
+              {/*<div className="relative">*/}
+              {/*  <div className="absolute inset-0 flex items-center">*/}
+              {/*    <Separator />*/}
+              {/*  </div>*/}
+              {/*  <div className="relative flex justify-center text-xs uppercase">*/}
+              {/*    <span className="bg-background px-2 text-muted-foreground">Or continue with</span>*/}
+              {/*  </div>*/}
+              {/*</div>*/}
 
-              {/* Form */}
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="Enter your email"
-                      value={formData.email}
-                      onChange={(e) => handleInputChange('email', e.target.value)}
-                      disabled={isLoading}
-                      className="pl-10"
-                      required
-                    />
+                    <Input id="email" type="email" placeholder="Enter your email" value={formData.email} onChange={(e) => setField("email", e.target.value)} disabled={isLoading} className="pl-10" required />
                   </div>
                 </div>
 
-                {mode !== 'forgot-password' && (
+                {mode === "signup" && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label htmlFor="firstName">First name</Label>
+                      <Input id="firstName" placeholder="First" value={formData.firstName} onChange={(e) => setField("firstName", e.target.value)} disabled={isLoading} />
+                    </div>
+                    <div>
+                      <Label htmlFor="lastName">Last name</Label>
+                      <Input id="lastName" placeholder="Last" value={formData.lastName} onChange={(e) => setField("lastName", e.target.value)} disabled={isLoading} />
+                    </div>
+                  </div>
+                )}
+
+                {mode !== "forgot-password" && (
                   <div className="space-y-2">
                     <Label htmlFor="password">Password</Label>
                     <div className="relative">
                       <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input
-                        id="password"
-                        type={showPassword ? "text" : "password"}
-                        placeholder="Enter your password"
-                        value={formData.password}
-                        onChange={(e) => handleInputChange('password', e.target.value)}
-                        disabled={isLoading}
-                        className="pl-10 pr-10"
-                        required
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2"
-                        onClick={() => setShowPassword(!showPassword)}
-                      >
+                      <Input id="password" type={showPassword ? "text" : "password"} placeholder="Enter your password" value={formData.password} onChange={(e) => setField("password", e.target.value)} disabled={isLoading} className="pl-10 pr-10" required />
+                      <Button type="button" variant="ghost" size="sm" className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2" onClick={() => setShowPassword(!showPassword)}>
                         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </Button>
                     </div>
                   </div>
                 )}
 
-                {mode === 'signup' && (
+                {mode === "signup" && (
                   <div className="space-y-2">
                     <Label htmlFor="confirmPassword">Confirm Password</Label>
                     <div className="relative">
                       <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input
-                        id="confirmPassword"
-                        type={showPassword ? "text" : "password"}
-                        placeholder="Confirm your password"
-                        value={formData.confirmPassword}
-                        onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
-                        disabled={isLoading}
-                        className="pl-10"
-                        required
-                      />
+                      <Input id="confirmPassword" type={showPassword ? "text" : "password"} placeholder="Confirm your password" value={formData.confirmPassword} onChange={(e) => setField("confirmPassword", e.target.value)} disabled={isLoading} className="pl-10" required />
                     </div>
                   </div>
                 )}
 
-                <Button 
-                  type="submit" 
-                  variant="gradient" 
-                  className="w-full" 
-                  disabled={isLoading}
-                >
+                <Button type="submit" variant="gradient" className="w-full" disabled={isLoading}>
                   {isLoading ? (
                     <div className="flex items-center gap-2">
                       <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
@@ -287,74 +286,29 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                     </div>
                   ) : (
                     <>
-                      {mode === 'login' && "Sign In"}
-                      {mode === 'signup' && "Create Account"}
-                      {mode === 'forgot-password' && "Send Reset Link"}
+                      {mode === "login" && "Sign In"}
+                      {mode === "signup" && "Create Account"}
+                      {mode === "forgot-password" && "Send Reset Link"}
                     </>
                   )}
                 </Button>
               </form>
 
-              {/* Footer Links */}
               <div className="space-y-2 text-center">
-                {mode === 'login' && (
+                {mode === "login" && (
                   <>
-                    <Button
-                      variant="link"
-                      size="sm"
-                      onClick={() => setMode('forgot-password')}
-                      className="p-0 h-auto text-sm"
-                    >
-                      Forgot password?
-                    </Button>
-                    <p className="text-sm text-muted-foreground">
-                      Don't have an account?{" "}
-                      <Button
-                        variant="link"
-                        size="sm"
-                        onClick={() => setMode('signup')}
-                        className="p-0 h-auto text-sm"
-                      >
-                        Sign up
-                      </Button>
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      Or{" "}
-                      <Button
-                        variant="link"
-                        size="sm"
-                        onClick={() => setMode('guest')}
-                        className="p-0 h-auto text-sm"
-                      >
-                        try as guest
-                      </Button>
-                    </p>
+                    <Button variant="link" size="sm" onClick={() => setMode("forgot-password")} className="p-0 h-auto text-sm">Forgot password?</Button>
+                    <p className="text-sm text-muted-foreground">Don't have an account? <Button variant="link" size="sm" onClick={() => setMode("signup")} className="p-0 h-auto text-sm">Sign up</Button></p>
+                    <p className="text-sm text-muted-foreground">Or <Button variant="link" size="sm" onClick={() => setMode("guest")} className="p-0 h-auto text-sm">try as guest</Button></p>
                   </>
                 )}
 
-                {mode === 'signup' && (
-                  <p className="text-sm text-muted-foreground">
-                    Already have an account?{" "}
-                    <Button
-                      variant="link"
-                      size="sm"
-                      onClick={() => setMode('login')}
-                      className="p-0 h-auto text-sm"
-                    >
-                      Sign in
-                    </Button>
-                  </p>
+                {mode === "signup" && (
+                  <p className="text-sm text-muted-foreground">Already have an account? <Button variant="link" size="sm" onClick={() => setMode("login")} className="p-0 h-auto text-sm">Sign in</Button></p>
                 )}
 
-                {mode === 'forgot-password' && (
-                  <Button
-                    variant="link"
-                    size="sm"
-                    onClick={() => setMode('login')}
-                    className="p-0 h-auto text-sm"
-                  >
-                    Back to sign in
-                  </Button>
+                {mode === "forgot-password" && (
+                  <Button variant="link" size="sm" onClick={() => setMode("login")} className="p-0 h-auto text-sm">Back to sign in</Button>
                 )}
               </div>
             </>

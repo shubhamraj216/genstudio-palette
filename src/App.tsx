@@ -18,6 +18,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/app" element={<AppShell />} />
+          <Route path="/chat/" element={<AppShell />} />
           <Route path="/chat/:chatId" element={<AppShell />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

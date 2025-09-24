@@ -1,17 +1,14 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { 
-  Search, 
-  Filter, 
-  Download, 
-  Heart, 
-  RotateCcw,
+import {
+  Search,
+  Download,
+  Heart,
   Copy,
-  MoreHorizontal,
   Image as ImageIcon,
   Video,
   Grid3X3,
@@ -19,12 +16,14 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
+const BACKEND_BASE = "http://localhost:8000";
+
 interface Asset {
   id: string;
   type: 'image' | 'video';
   url: string;
   prompt: string;
-  timestamp: Date;
+  timestamp: string; // ISO from backend
   liked: boolean;
   downloads: number;
 }
@@ -36,36 +35,53 @@ export default function AssetsView() {
   const [filter, setFilter] = useState<'all' | 'image' | 'video'>('all');
   const { toast } = useToast();
 
-  // Mock assets data
-  const [assets, setAssets] = useState<Asset[]>([
-    {
-      id: '1',
-      type: 'image',
-      url: '/placeholder.svg',
-      prompt: 'A futuristic city skyline at sunset with flying cars',
-      timestamp: new Date(Date.now() - 3600000),
-      liked: true,
-      downloads: 5,
-    },
-    {
-      id: '2',
-      type: 'image',
-      url: '/placeholder.svg',
-      prompt: 'Abstract geometric pattern in blue and gold',
-      timestamp: new Date(Date.now() - 7200000),
-      liked: false,
-      downloads: 2,
-    },
-    {
-      id: '3',
-      type: 'video',
-      url: '/placeholder.svg',
-      prompt: 'Animated logo reveal with particles',
-      timestamp: new Date(Date.now() - 10800000),
-      liked: true,
-      downloads: 8,
-    },
-  ]);
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetchAssets();
+  }, []);
+
+  function getAuthHeaders() {
+  const token = localStorage.getItem("access_token");
+  return token ? { "Authorization": `Bearer ${token}` } : {};
+}
+
+
+  // inside AssetsView component, below fetchAssets and existing useEffect
+useEffect(() => {
+  const onAssetsChanged = (e: Event) => {
+    // simply re-fetch to keep in sync with server
+    fetchAssets();
+  };
+  window.addEventListener("assets:changed", onAssetsChanged as EventListener);
+  return () => window.removeEventListener("assets:changed", onAssetsChanged as EventListener);
+}, []);
+
+
+  const fetchAssets = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${BACKEND_BASE}/api/assets`, { method: "GET", headers: { "Content-Type": "application/json", ...getAuthHeaders() } });
+      if (!res.ok) throw new Error("failed to fetch");
+      const data = await res.json();
+      const parsed: Asset[] = (data.assets || []).map((a: any) => ({
+        id: a.id,
+        type: a.type,
+        url: a.url.startsWith("http") ? a.url : `${BACKEND_BASE}${a.url}`,
+        prompt: a.prompt,
+        timestamp: a.timestamp,
+        liked: !!a.liked,
+        downloads: Number(a.downloads || 0),
+      }));
+      setAssets(parsed);
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Error", description: "Could not load assets." });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredAssets = assets.filter(asset => {
     const matchesSearch = asset.prompt.toLowerCase().includes(searchQuery.toLowerCase());
@@ -73,24 +89,63 @@ export default function AssetsView() {
     return matchesSearch && matchesFilter;
   });
 
-  const handleAddToAssets = (assetId: string) => {
-    setAssets(prev => prev.map(asset => 
-      asset.id === assetId ? { ...asset, liked: !asset.liked } : asset
-    ));
-    toast({
-      title: "Added to Assets",
-      description: "Asset saved to your collection.",
-    });
-  };
+  const handleToggleLike = async (assetId: string) => {
+  // optimistic: flip liked locally (UI snappy)
+  setAssets(prev => prev.map(a => a.id === assetId ? { ...a, liked: !a.liked } : a));
 
-  const handleDownload = (asset: Asset) => {
-    setAssets(prev => prev.map(a => 
-      a.id === asset.id ? { ...a, downloads: a.downloads + 1 } : a
-    ));
-    toast({
-      title: "Downloaded",
-      description: `${asset.type === 'image' ? 'Image' : 'Video'} saved to your device.`,
-    });
+  try {
+    const res = await fetch(`${BACKEND_BASE}/api/assets/${assetId}/toggle-like`, { method: "POST", headers: { "Content-Type": "application/json", ...getAuthHeaders() } });
+    if (!res.ok) throw new Error("toggle failed");
+    const updated = await res.json();
+
+    if (updated.deleted) {
+      // backend removed asset; remove from local list
+      setAssets(prev => prev.filter(a => a.id !== assetId));
+      toast({ title: "Removed from Assets", description: "Asset removed from your collection." });
+      return;
+    }
+
+    // backend returned updated asset object
+    updated.url = updated.url.startsWith("http") ? updated.url : `${BACKEND_BASE}${updated.url}`;
+    setAssets(prev => prev.map(a => a.id === assetId ? { ...a, liked: !!updated.liked } : a));
+    toast({ title: updated.liked ? "Added to Assets" : "Updated" });
+  } catch (err) {
+    console.error(err);
+    // rollback by refetching list for simplicity
+    await fetchAssets();
+    toast({ title: "Error", description: "Could not update asset." });
+  }
+};
+
+
+
+  const handleDownload = async (asset: Asset) => {
+    // optimistic UI change
+    setAssets(prev => prev.map(a => a.id === asset.id ? { ...a, downloads: a.downloads + 1 } : a));
+    try {
+      const res = await fetch(`${BACKEND_BASE}/api/assets/${asset.id}/increment-download`, { method: "POST", headers: { "Content-Type": "application/json", ...getAuthHeaders() } });
+      if (!res.ok) throw new Error("increment failed");
+      const updated = await res.json();
+      updated.url = updated.url.startsWith("http") ? updated.url : `${BACKEND_BASE}${updated.url}`;
+      setAssets(prev => prev.map(a => a.id === asset.id ? { ...a, downloads: Number(updated.downloads || 0) } : a));
+    } catch (err) {
+      console.error(err);
+      setAssets(prev => prev.map(a => a.id === asset.id ? { ...a, downloads: Math.max(0, a.downloads - 1) } : a));
+      toast({ title: "Error", description: "Could not register download." });
+    }
+
+    // perform browser download
+    try {
+      const a = document.createElement("a");
+      a.href = asset.url;
+      a.download = `${asset.id}.${asset.type === "image" ? "png" : "mp4"}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch (e) {
+      console.error("download client error", e);
+      toast({ title: "Download failed", description: "Could not download file." });
+    }
   };
 
   const handleCopyPrompt = (prompt: string) => {
@@ -113,7 +168,7 @@ export default function AssetsView() {
                 {filteredAssets.length} assets generated
               </p>
             </div>
-            
+
             <div className="flex items-center gap-2">
               <Button
                 variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
@@ -143,7 +198,7 @@ export default function AssetsView() {
                 className="pl-10"
               />
             </div>
-            
+
             <div className="flex items-center gap-2">
               <Button
                 variant={filter === 'all' ? 'secondary' : 'ghost'}
@@ -176,7 +231,9 @@ export default function AssetsView() {
       {/* Assets Grid */}
       <div className="flex-1 overflow-y-auto p-4 md:p-6">
         <div className="mx-auto max-w-7xl">
-          {filteredAssets.length === 0 ? (
+          {loading ? (
+            <div>Loading...</div>
+          ) : filteredAssets.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <ImageIcon className="h-16 w-16 text-muted-foreground mb-4" />
               <h3 className="text-lg font-medium mb-2">No assets yet</h3>
@@ -186,13 +243,13 @@ export default function AssetsView() {
             </div>
           ) : (
             <div className={
-              viewMode === 'grid' 
+              viewMode === 'grid'
                 ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
                 : "space-y-4"
             }>
               {filteredAssets.map((asset) => (
-                <Card 
-                  key={asset.id} 
+                <Card
+                  key={asset.id}
                   className={`overflow-hidden cursor-pointer transition-all hover:shadow-medium ${
                     viewMode === 'list' ? 'flex' : ''
                   }`}
@@ -200,29 +257,36 @@ export default function AssetsView() {
                 >
                   <div className={`relative ${
                     viewMode === 'list' ? 'w-32 h-20' : 'aspect-video'
-                  } bg-muted flex items-center justify-center`}>
+                  } bg-muted flex items-center justify-center overflow-hidden`}>
                     {asset.type === 'image' ? (
-                      <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={asset.url}
+                        alt={asset.prompt}
+                        loading="lazy"
+                        className="w-full h-full object-cover"
+                        onError={(e) => (e.currentTarget.src = "/placeholder.svg")}
+                      />
                     ) : (
                       <Video className="h-8 w-8 text-muted-foreground" />
                     )}
-                    <Badge 
+                    <Badge
                       className="absolute top-2 right-2 text-xs"
                       variant={asset.type === 'image' ? 'secondary' : 'outline'}
                     >
                       {asset.type}
                     </Badge>
                   </div>
-                  
+
                   <div className="p-3 flex-1">
                     <p className="text-sm font-medium line-clamp-2 mb-2">
                       {asset.prompt}
                     </p>
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>{asset.timestamp.toLocaleDateString()}</span>
+                      <span>{new Date(asset.timestamp).toLocaleDateString()}</span>
                       <span>{asset.downloads} downloads</span>
                     </div>
-                    
+
                     <div className="flex items-center justify-between mt-3">
                       <div className="flex items-center gap-1">
                         <Button
@@ -230,12 +294,12 @@ export default function AssetsView() {
                           size="sm"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleAddToAssets(asset.id);
+                            handleToggleLike(asset.id);
                           }}
                           className={asset.liked ? 'text-blue-500' : ''}
                         >
-                          <Heart 
-                            className={`h-4 w-4 ${asset.liked ? 'fill-current' : ''}`} 
+                          <Heart
+                            className={`h-4 w-4 ${asset.liked ? 'fill-current' : ''}`}
                           />
                         </Button>
                         <Button
@@ -247,6 +311,16 @@ export default function AssetsView() {
                           }}
                         >
                           <Download className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCopyPrompt(asset.prompt);
+                          }}
+                        >
+                          <Copy className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
@@ -268,27 +342,28 @@ export default function AssetsView() {
             <div className="space-y-4">
               <div className="aspect-video bg-muted rounded-lg flex items-center justify-center">
                 {selectedAsset.type === 'image' ? (
-                  <ImageIcon className="h-16 w-16 text-muted-foreground" />
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={selectedAsset.url} alt={selectedAsset.prompt} className="max-h-[60vh] object-contain" />
                 ) : (
                   <Video className="h-16 w-16 text-muted-foreground" />
                 )}
               </div>
-              
+
               <div>
                 <h3 className="font-medium mb-2">Prompt</h3>
                 <p className="text-sm text-muted-foreground bg-muted p-3 rounded">
                   {selectedAsset.prompt}
                 </p>
               </div>
-              
+
               <div className="flex items-center justify-between">
                 <div className="text-sm text-muted-foreground">
-                  Created {selectedAsset.timestamp.toLocaleDateString()}
+                  Created {new Date(selectedAsset.timestamp).toLocaleDateString()}
                 </div>
                 <div className="flex items-center gap-2">
                   <Button
                     variant="outline"
-                    onClick={() => handleAddToAssets(selectedAsset.id)}
+                    onClick={() => handleToggleLike(selectedAsset.id)}
                   >
                     <Heart className={`mr-2 h-4 w-4 ${selectedAsset.liked ? 'fill-current text-blue-500' : ''}`} />
                     {selectedAsset.liked ? 'In Assets' : 'Add to Assets'}
