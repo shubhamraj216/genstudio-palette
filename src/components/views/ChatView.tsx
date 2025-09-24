@@ -80,7 +80,11 @@ export default function ChatView() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] flex-col">
+    <div className={`flex flex-col ${
+      isMobile 
+        ? 'h-[calc(100vh-8rem)]' // Account for both header (4rem) and bottom nav (4rem)
+        : 'h-[calc(100vh-4rem)]'  // Only header on desktop
+    }`}>
       {/* Chat Messages */}
       <div className="flex-1 overflow-y-auto p-4 md:p-6">
         <div className="mx-auto max-w-4xl space-y-6">
