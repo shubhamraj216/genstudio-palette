@@ -21,7 +21,6 @@ export default function AppShell() {
   const [isPersonaSidebarOpen, setIsPersonaSidebarOpen] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [currentView, setCurrentView] = useState<'chat' | 'assets' | 'profile'>('chat');
-  const [showApp, setShowApp] = useState(true);
   const { chatId } = useParams();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
@@ -37,26 +36,16 @@ export default function AppShell() {
     navigate(`/chat/${newChatId}`);
   };
 
-  // If no chatId in URL and we're showing the app, redirect to new chat
+  // Redirect to new chat if no chatId on /app route
   useEffect(() => {
-    if (showApp && !chatId && window.location.pathname !== '/app') {
+    if (window.location.pathname === '/app' && !chatId) {
       handleNewChat();
     }
-  }, [showApp, chatId]);
+  }, [chatId]);
 
   // Mock user state - replace with actual auth
   const isAuthenticated = false;
   const user = null;
-
-  // Show homepage for root path
-  if (window.location.pathname === '/') {
-    return (
-      <Homepage 
-        onGetStarted={() => handleNewChat()}
-        onLogin={() => setShowAuthModal(true)}
-      />
-    );
-  }
 
   if (isMobile) {
     return (
@@ -65,10 +54,15 @@ export default function AppShell() {
         <header className="sticky top-0 z-40 w-full border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
           <div className="container flex h-16 items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-primary">
-                <Sparkles className="h-5 w-5 text-primary-foreground" />
-              </div>
-              <span className="text-lg font-semibold">Assets Studio</span>
+              <button 
+                onClick={() => navigate('/')}
+                className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+              >
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-primary">
+                  <Sparkles className="h-5 w-5 text-primary-foreground" />
+                </div>
+                <span className="text-lg font-semibold">Assets Studio</span>
+              </button>
             </div>
             <div className="flex items-center gap-2">
               <Button
@@ -152,12 +146,15 @@ export default function AppShell() {
       <header className="sticky top-0 z-40 w-full border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
         <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2">
+            <button 
+              onClick={() => navigate('/')}
+              className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+            >
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-primary">
                 <Sparkles className="h-5 w-5 text-primary-foreground" />
               </div>
               <span className="text-lg font-semibold">Assets Studio</span>
-            </div>
+            </button>
             
             <nav className="flex items-center gap-1">
               <Button
