@@ -78,7 +78,7 @@ export default function Homepage({ onGetStarted, onLogin }: HomepageProps) {
                 className="bg-gradient-primary hover:opacity-90 text-lg px-8 py-6"
                 onClick={onGetStarted}
               >
-                Get Started Free
+                Start Creating
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
               <Button variant="outline" size="lg" className="text-lg px-8 py-6" onClick={onLogin}>

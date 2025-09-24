@@ -2,7 +2,9 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useToast } from "@/hooks/use-toast";
 import { 
   Send, 
   Sparkles, 
@@ -10,7 +12,10 @@ import {
   Video,
   Wand2,
   Bot,
-  User
+  User,
+  Download,
+  Heart,
+  Plus
 } from "lucide-react";
 
 interface Message {
@@ -26,7 +31,12 @@ interface Message {
   }>;
 }
 
-export default function ChatView() {
+interface ChatViewProps {
+  chatId?: string;
+  onNewChat: () => void;
+}
+
+export default function ChatView({ chatId, onNewChat }: ChatViewProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
@@ -37,7 +47,9 @@ export default function ChatView() {
   ]);
   const [inputValue, setInputValue] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const isMobile = useIsMobile();
+  const { toast } = useToast();
 
   const quickPrompts = [
     "A futuristic city skyline at sunset",
@@ -79,6 +91,20 @@ export default function ChatView() {
     }, 2000);
   };
 
+  const handleAddToAssets = (assetId: string) => {
+    toast({
+      title: "Added to Assets",
+      description: "Asset saved to your collection.",
+    });
+  };
+
+  const handleDownload = (assetId: string) => {
+    toast({
+      title: "Downloaded",
+      description: "Asset saved to your device.",
+    });
+  };
+
   return (
     <div className={`flex flex-col ${
       isMobile 
@@ -116,7 +142,7 @@ export default function ChatView() {
                 {message.assets && (
                   <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
                     {message.assets.map((asset) => (
-                      <Card key={asset.id} className="overflow-hidden">
+                      <Card key={asset.id} className="overflow-hidden cursor-pointer" onClick={() => setSelectedImage(asset.url)}>
                         <div className="aspect-video bg-muted flex items-center justify-center">
                           {asset.type === 'image' ? (
                             <Image className="h-12 w-12 text-muted-foreground" />
@@ -129,14 +155,27 @@ export default function ChatView() {
                             "{asset.prompt}"
                           </p>
                           <div className="flex gap-2">
-                            <Button size="sm" variant="outline">
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDownload(asset.id);
+                              }}
+                            >
+                              <Download className="h-3 w-3 mr-1" />
                               Download
                             </Button>
-                            <Button size="sm" variant="ghost">
+                            <Button 
+                              size="sm" 
+                              variant="ghost"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAddToAssets(asset.id);
+                              }}
+                            >
+                              <Heart className="h-3 w-3 mr-1" />
                               Like
-                            </Button>
-                            <Button size="sm" variant="ghost">
-                              Regenerate
                             </Button>
                           </div>
                         </div>
@@ -233,6 +272,40 @@ export default function ChatView() {
           </div>
         </div>
       </div>
+
+      {/* Image Modal */}
+      <Dialog open={selectedImage !== null} onOpenChange={() => setSelectedImage(null)}>
+        <DialogContent className="max-w-4xl p-0">
+          <DialogHeader className="p-6 pb-0">
+            <DialogTitle>Generated Image</DialogTitle>
+          </DialogHeader>
+          {selectedImage && (
+            <div className="p-6">
+              <div className="aspect-video bg-muted flex items-center justify-center mb-4">
+                <Image className="h-24 w-24 text-muted-foreground" />
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => handleAddToAssets('selected')}
+                  >
+                    <Heart className="mr-2 h-4 w-4" />
+                    Add to Assets
+                  </Button>
+                  <Button
+                    variant="gradient"
+                    onClick={() => handleDownload('selected')}
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Download
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

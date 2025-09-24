@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Routes, Route } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { 
@@ -21,25 +21,39 @@ export default function AppShell() {
   const [isPersonaSidebarOpen, setIsPersonaSidebarOpen] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [currentView, setCurrentView] = useState<'chat' | 'assets' | 'profile'>('chat');
-  const [showApp, setShowApp] = useState(false);
+  const [showApp, setShowApp] = useState(true);
+  const { chatId } = useParams();
+  const navigate = useNavigate();
   const isMobile = useIsMobile();
+
+  // Generate new chat UUID when needed
+  const generateNewChatId = () => {
+    return 'chat-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+  };
+
+  // Handle new chat creation
+  const handleNewChat = () => {
+    const newChatId = generateNewChatId();
+    navigate(`/chat/${newChatId}`);
+  };
+
+  // If no chatId in URL and we're showing the app, redirect to new chat
+  useEffect(() => {
+    if (showApp && !chatId && window.location.pathname !== '/app') {
+      handleNewChat();
+    }
+  }, [showApp, chatId]);
 
   // Mock user state - replace with actual auth
   const isAuthenticated = false;
   const user = null;
 
-  // Show homepage initially
-  if (!showApp) {
+  // Show homepage for root path
+  if (window.location.pathname === '/') {
     return (
       <Homepage 
-        onGetStarted={() => {
-          setShowAuthModal(true);
-          setShowApp(true);
-        }}
-        onLogin={() => {
-          setShowAuthModal(true);
-          setShowApp(true);
-        }}
+        onGetStarted={() => handleNewChat()}
+        onLogin={() => setShowAuthModal(true)}
       />
     );
   }
@@ -70,7 +84,7 @@ export default function AppShell() {
 
         {/* Mobile Content */}
         <main className="flex-1 pb-20">
-          {currentView === 'chat' && <ChatView />}
+          {currentView === 'chat' && <ChatView chatId={chatId} onNewChat={handleNewChat} />}
           {currentView === 'assets' && <AssetsView />}
           {currentView === 'profile' && <ProfileView />}
         </main>
@@ -197,7 +211,7 @@ export default function AppShell() {
       <div className="flex h-[calc(100vh-4rem)]">
         {/* Left Pane - Chat */}
         <div className="w-1/2 border-r">
-          <ChatView />
+          <ChatView chatId={chatId} onNewChat={handleNewChat} />
         </div>
         
         {/* Right Pane - Assets/Profile */}
