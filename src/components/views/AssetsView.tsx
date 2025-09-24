@@ -73,13 +73,13 @@ export default function AssetsView() {
     return matchesSearch && matchesFilter;
   });
 
-  const handleLike = (assetId: string) => {
+  const handleAddToAssets = (assetId: string) => {
     setAssets(prev => prev.map(asset => 
       asset.id === assetId ? { ...asset, liked: !asset.liked } : asset
     ));
     toast({
-      title: "Updated",
-      description: "Asset added to your liked collection.",
+      title: "Added to Assets",
+      description: "Asset saved to your collection.",
     });
   };
 
@@ -230,9 +230,9 @@ export default function AssetsView() {
                           size="sm"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleLike(asset.id);
+                            handleAddToAssets(asset.id);
                           }}
-                          className={asset.liked ? 'text-red-500' : ''}
+                          className={asset.liked ? 'text-blue-500' : ''}
                         >
                           <Heart 
                             className={`h-4 w-4 ${asset.liked ? 'fill-current' : ''}`} 
@@ -249,16 +249,6 @@ export default function AssetsView() {
                           <Download className="h-4 w-4" />
                         </Button>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleCopyPrompt(asset.prompt);
-                        }}
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
                     </div>
                   </div>
                 </Card>
@@ -298,17 +288,10 @@ export default function AssetsView() {
                 <div className="flex items-center gap-2">
                   <Button
                     variant="outline"
-                    onClick={() => handleLike(selectedAsset.id)}
+                    onClick={() => handleAddToAssets(selectedAsset.id)}
                   >
-                    <Heart className={`mr-2 h-4 w-4 ${selectedAsset.liked ? 'fill-current text-red-500' : ''}`} />
-                    {selectedAsset.liked ? 'Liked' : 'Like'}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => handleCopyPrompt(selectedAsset.prompt)}
-                  >
-                    <Copy className="mr-2 h-4 w-4" />
-                    Copy Prompt
+                    <Heart className={`mr-2 h-4 w-4 ${selectedAsset.liked ? 'fill-current text-blue-500' : ''}`} />
+                    {selectedAsset.liked ? 'In Assets' : 'Add to Assets'}
                   </Button>
                   <Button
                     variant="gradient"
