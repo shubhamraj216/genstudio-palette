@@ -15,16 +15,34 @@ import AssetsView from "./views/AssetsView";
 import ProfileView from "./views/ProfileView";
 import AuthModal from "./auth/AuthModal";
 import PersonaSidebar from "./persona/PersonaSidebar";
+import Homepage from "./Homepage";
 
 export default function AppShell() {
   const [isPersonaSidebarOpen, setIsPersonaSidebarOpen] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [currentView, setCurrentView] = useState<'chat' | 'assets' | 'profile'>('chat');
+  const [showApp, setShowApp] = useState(false);
   const isMobile = useIsMobile();
 
   // Mock user state - replace with actual auth
   const isAuthenticated = false;
   const user = null;
+
+  // Show homepage initially
+  if (!showApp) {
+    return (
+      <Homepage 
+        onGetStarted={() => {
+          setShowAuthModal(true);
+          setShowApp(true);
+        }}
+        onLogin={() => {
+          setShowAuthModal(true);
+          setShowApp(true);
+        }}
+      />
+    );
+  }
 
   if (isMobile) {
     return (
@@ -175,14 +193,19 @@ export default function AppShell() {
         </div>
       </header>
 
-      {/* Desktop Content */}
-      <div className="flex flex-1">
-        {/* Main Content */}
-        <main className="flex-1">
-          {currentView === 'chat' && <ChatView />}
+      {/* Desktop Content - Split Screen */}
+      <div className="flex h-[calc(100vh-4rem)]">
+        {/* Left Pane - Chat */}
+        <div className="w-1/2 border-r">
+          <ChatView />
+        </div>
+        
+        {/* Right Pane - Assets/Profile */}
+        <div className="w-1/2">
           {currentView === 'assets' && <AssetsView />}
           {currentView === 'profile' && <ProfileView />}
-        </main>
+          {currentView === 'chat' && <AssetsView />} {/* Show assets by default when chat is active */}
+        </div>
       </div>
 
       {/* Persona Sidebar - Desktop */}
