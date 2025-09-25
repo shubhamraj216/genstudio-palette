@@ -26,7 +26,7 @@ type ConvSummary = {
   message_count?: number;
 };
 
-const API_BASE = "http://localhost:8000";
+const API_BASE = "http://python-genai.railway.internal";
 const TOKEN_KEY = "access_token";
 
 export default function Homepage({

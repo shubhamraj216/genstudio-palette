@@ -34,7 +34,7 @@ interface PersonaSidebarProps {
   onPersonaChanged?: () => void; // optional callback so parent can react
 }
 
-const API_BASE = "http://localhost:8000";
+const API_BASE = "http://python-genai.railway.internal";
 const TOKEN_KEY = "access_token";
 
 export default function PersonaSidebar({ isOpen, onClose, isMobile, onPersonaChanged }: PersonaSidebarProps) {
