@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-const BACKEND_BASE = "http://python-genai.railway.internal";
+const BACKEND_BASE = "https://python-genai.railway.internal";
 
 interface Asset {
   id: string;

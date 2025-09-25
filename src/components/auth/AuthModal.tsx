@@ -125,7 +125,7 @@ export default function AuthModal({ isOpen, onClose, initialMode }: AuthModalPro
     setError("");
     try {
       // backend expects JSON string body (we match existing API)
-      const res = await fetch(`http://python-genai.railway.internal/api/auth/forgot-password`, {
+      const res = await fetch(`https://python-genai.railway.internal/api/auth/forgot-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData.email),

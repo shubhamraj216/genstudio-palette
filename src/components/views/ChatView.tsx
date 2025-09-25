@@ -39,7 +39,7 @@ interface ChatViewProps {
   onNewChat?: (backendConversationId?: string) => void;
 }
 
-const BACKEND_BASE = "http://python-genai.railway.internal"; // change if backend URL differs
+const BACKEND_BASE = "https://python-genai.railway.internal"; // change if backend URL differs
 
 export default function ChatView({ chatId, onNewChat }: ChatViewProps) {
   const [messages, setMessages] = useState<Message[]>([

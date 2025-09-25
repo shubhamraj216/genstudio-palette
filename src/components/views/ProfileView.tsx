@@ -40,7 +40,7 @@ export default function ProfileView() {
   const [error, setError] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState<number>(0); // bump to retry manually
 
-  const BACKEND_BASE =  "http://python-genai.railway.internal";
+  const BACKEND_BASE =  "https://python-genai.railway.internal";
 
   // Fetch assets once when user becomes available (or when retry requested)
   useEffect(() => {
