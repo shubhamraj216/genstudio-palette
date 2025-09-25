@@ -1,7 +1,7 @@
 // src/hooks/useAuth.ts
 import { useState, useEffect, useCallback } from "react";
 
-const BACKEND_BASE = "https://python-genai.railway.internal";
+const BACKEND_BASE = "https://python-genai-production.up.railway.app";
 
 export type User = {
   id: string;
