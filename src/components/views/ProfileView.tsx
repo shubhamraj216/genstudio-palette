@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { API_BASE_URL, ASSET_ENDPOINTS } from "@/config/api";
 
 type Asset = {
   id: string;
@@ -40,8 +41,6 @@ export default function ProfileView() {
   const [error, setError] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState<number>(0); // bump to retry manually
 
-  const BACKEND_BASE =  "https://python-genai-production.up.railway.app";
-
   // Fetch assets once when user becomes available (or when retry requested)
   useEffect(() => {
     if (!user) {
@@ -56,7 +55,7 @@ export default function ProfileView() {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(`${BACKEND_BASE}/api/assets`, {
+        const res = await fetch(ASSET_ENDPOINTS.LIST, {
           headers: { "Content-Type": "application/json", ...(typeof authHeaders === "function" ? authHeaders() : authHeaders || {}) },
           signal: controller.signal,
         });
@@ -97,7 +96,7 @@ export default function ProfileView() {
       controller.abort();
     };
     // only re-run when user or retryKey changes
-  }, [BACKEND_BASE, user, retryKey, authHeaders, toast]);
+  }, [user, retryKey, authHeaders, toast]);
 
   // derived lists
   const likedAssets = useMemo(() => assets.filter((a) => a.liked), [assets]);
@@ -119,7 +118,7 @@ export default function ProfileView() {
   // Toggle like endpoint
   const handleToggleLike = async (assetId: string) => {
     try {
-      const res = await fetch(`${BACKEND_BASE}/api/assets/${encodeURIComponent(assetId)}/toggle-like`, {
+      const res = await fetch(ASSET_ENDPOINTS.TOGGLE_LIKE(assetId), {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(typeof authHeaders === "function" ? authHeaders() : authHeaders || {}) },
       });
@@ -140,8 +139,8 @@ export default function ProfileView() {
   // Increment download and trigger browser download
   const handleDownloadAgain = async (asset: Asset) => {
     try {
-      const absUrl = asset.url.startsWith("http") ? asset.url : `${BACKEND_BASE}${asset.url}`;
-      const res = await fetch(`${BACKEND_BASE}/api/assets/${encodeURIComponent(asset.id)}/increment-download`, {
+      const absUrl = asset.url.startsWith("http") ? asset.url : `${API_BASE_URL}${asset.url}`;
+      const res = await fetch(ASSET_ENDPOINTS.INCREMENT_DOWNLOAD(asset.id), {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(typeof authHeaders === "function" ? authHeaders() : authHeaders || {}) },
       });
@@ -169,7 +168,7 @@ export default function ProfileView() {
   };
 
   const handleView = (asset: Asset) => {
-    const absUrl = asset.url.startsWith("http") ? asset.url : `${BACKEND_BASE}${asset.url}`;
+    const absUrl = asset.url.startsWith("http") ? asset.url : `${API_BASE_URL}${asset.url}`;
     window.open(absUrl, "_blank", "noopener,noreferrer");
   };
 
@@ -300,7 +299,7 @@ export default function ProfileView() {
                       <div className="aspect-video bg-muted flex items-center justify-center overflow-hidden">
                         {asset.type === "image" ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={asset.url.startsWith("http") ? asset.url : `${BACKEND_BASE}${asset.url}`} alt={asset.prompt} className="w-full h-full object-cover" />
+                          <img src={asset.url.startsWith("http") ? asset.url : `${API_BASE_URL}${asset.url}`} alt={asset.prompt} className="w-full h-full object-cover" />
                         ) : (
                           <Video className="h-8 w-8 text-muted-foreground" />
                         )}
@@ -332,7 +331,7 @@ export default function ProfileView() {
                       <div className="aspect-video bg-muted flex items-center justify-center overflow-hidden">
                         {asset.type === "image" ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={asset.url.startsWith("http") ? asset.url : `${BACKEND_BASE}${asset.url}`} alt={asset.prompt} className="w-full h-full object-cover" />
+                          <img src={asset.url.startsWith("http") ? asset.url : `${API_BASE_URL}${asset.url}`} alt={asset.prompt} className="w-full h-full object-cover" />
                         ) : (
                           <Video className="h-8 w-8 text-muted-foreground" />
                         )}
@@ -358,7 +357,7 @@ export default function ProfileView() {
                       <div className="w-16 h-16 bg-muted rounded flex items-center justify-center overflow-hidden">
                         {asset.type === "image" ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={asset.url.startsWith("http") ? asset.url : `${BACKEND_BASE}${asset.url}`} alt={asset.prompt} className="w-full h-full object-cover" />
+                          <img src={asset.url.startsWith("http") ? asset.url : `${API_BASE_URL}${asset.url}`} alt={asset.prompt} className="w-full h-full object-cover" />
                         ) : (
                           <Video className="h-6 w-6 text-muted-foreground" />
                         )}

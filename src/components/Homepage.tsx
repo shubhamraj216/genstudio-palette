@@ -10,6 +10,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import heroGradient from "@/assets/hero-gradient.jpg";
+import { CONVERSATION_ENDPOINTS } from "@/config/api";
 
 interface HomepageProps {
   onGetStarted: () => void;
@@ -26,7 +27,6 @@ type ConvSummary = {
   message_count?: number;
 };
 
-const API_BASE = "https://python-genai-production.up.railway.app";
 const TOKEN_KEY = "access_token";
 
 export default function Homepage({
@@ -53,7 +53,7 @@ export default function Homepage({
       }
 
       try {
-        const res = await fetch(`${API_BASE}/api/recent-conversations`, {
+        const res = await fetch(CONVERSATION_ENDPOINTS.RECENT, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",

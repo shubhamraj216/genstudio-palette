@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { AUTH_ENDPOINTS } from "@/config/api";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -125,7 +126,7 @@ export default function AuthModal({ isOpen, onClose, initialMode }: AuthModalPro
     setError("");
     try {
       // backend expects JSON string body (we match existing API)
-      const res = await fetch(`https://python-genai-production.up.railway.app/api/auth/forgot-password`, {
+      const res = await fetch(AUTH_ENDPOINTS.FORGOT_PASSWORD, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData.email),

@@ -7,6 +7,7 @@ import {
   MessageSquare,
   Image,
   User,
+  UserCircle,
   Menu,
   Sparkles,
   Settings,
@@ -15,6 +16,7 @@ import {
 import ChatView from "./views/ChatView";
 import AssetsView from "./views/AssetsView";
 import ProfileView from "./views/ProfileView";
+import AvatarsView from "./views/AvatarsView";
 import AuthModal from "./auth/AuthModal";
 import PersonaSidebar from "./persona/PersonaSidebar";
 import Homepage from "./Homepage";
@@ -26,7 +28,7 @@ export default function AppShell() {
   const [isPersonaSidebarOpen, setIsPersonaSidebarOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>("login");
-  const [currentView, setCurrentView] = useState<"chat" | "assets" | "profile">("chat");
+  const [currentView, setCurrentView] = useState<"chat" | "assets" | "avatars" | "profile">("chat");
   const { chatId } = useParams();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
@@ -146,12 +148,13 @@ export default function AppShell() {
         <main className="flex-1 pb-20">
           {currentView === "chat" && <ChatView chatId={chatId} onNewChat={handleNewChat} />}
           {currentView === "assets" && <AssetsView />}
+          {currentView === "avatars" && <AvatarsView />}
           {currentView === "profile" && <ProfileView />}
         </main>
 
         {/* Mobile Bottom Navigation */}
         <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
-          <div className="grid grid-cols-3">
+          <div className="grid grid-cols-4">
             <Button
               variant="ghost"
               className={`h-16 flex-col gap-1 rounded-none ${currentView === "chat" ? "text-primary" : "text-muted-foreground"}`}
@@ -167,6 +170,14 @@ export default function AppShell() {
             >
               <Image className="h-5 w-5" />
               <span className="text-xs">Assets</span>
+            </Button>
+            <Button
+              variant="ghost"
+              className={`h-16 flex-col gap-1 rounded-none ${currentView === "avatars" ? "text-primary" : "text-muted-foreground"}`}
+              onClick={() => setCurrentView("avatars")}
+            >
+              <UserCircle className="h-5 w-5" />
+              <span className="text-xs">Avatars</span>
             </Button>
             <Button
               variant="ghost"
@@ -210,6 +221,9 @@ export default function AppShell() {
               </Button>
               <Button variant={currentView === "assets" ? "secondary" : "ghost"} onClick={() => setCurrentView("assets")}>
                 Assets
+              </Button>
+              <Button variant={currentView === "avatars" ? "secondary" : "ghost"} onClick={() => setCurrentView("avatars")}>
+                Avatars
               </Button>
               <Button variant={currentView === "profile" ? "secondary" : "ghost"} onClick={() => setCurrentView("profile")}>
                 Profile
@@ -260,9 +274,10 @@ export default function AppShell() {
           <ChatView chatId={chatId} onNewChat={handleNewChat} />
         </div>
 
-        {/* Right Pane - Assets/Profile */}
+        {/* Right Pane - Assets/Avatars/Profile */}
         <div className="w-1/2">
           {currentView === "assets" && <AssetsView />}
+          {currentView === "avatars" && <AvatarsView />}
           {currentView === "profile" && <ProfileView />}
           {currentView === "chat" && <AssetsView />} {/* Show assets by default when chat is active */}
         </div>

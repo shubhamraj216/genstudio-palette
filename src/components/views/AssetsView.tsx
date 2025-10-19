@@ -15,8 +15,7 @@ import {
   List
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-
-const BACKEND_BASE = "https://python-genai-production.up.railway.app";
+import { API_BASE_URL, ASSET_ENDPOINTS } from "@/config/api";
 
 interface Asset {
   id: string;
@@ -62,13 +61,13 @@ useEffect(() => {
   const fetchAssets = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${BACKEND_BASE}/api/assets`, { method: "GET", headers: { "Content-Type": "application/json", ...getAuthHeaders() } });
+      const res = await fetch(ASSET_ENDPOINTS.LIST, { method: "GET", headers: { "Content-Type": "application/json", ...getAuthHeaders() } });
       if (!res.ok) throw new Error("failed to fetch");
       const data = await res.json();
       const parsed: Asset[] = (data.assets || []).map((a: any) => ({
         id: a.id,
         type: a.type,
-        url: a.url.startsWith("http") ? a.url : `${BACKEND_BASE}${a.url}`,
+        url: a.url.startsWith("http") ? a.url : `${API_BASE_URL}${a.url}`,
         prompt: a.prompt,
         timestamp: a.timestamp,
         liked: !!a.liked,
@@ -94,7 +93,7 @@ useEffect(() => {
   setAssets(prev => prev.map(a => a.id === assetId ? { ...a, liked: !a.liked } : a));
 
   try {
-    const res = await fetch(`${BACKEND_BASE}/api/assets/${assetId}/toggle-like`, { method: "POST", headers: { "Content-Type": "application/json", ...getAuthHeaders() } });
+    const res = await fetch(ASSET_ENDPOINTS.TOGGLE_LIKE(assetId), { method: "POST", headers: { "Content-Type": "application/json", ...getAuthHeaders() } });
     if (!res.ok) throw new Error("toggle failed");
     const updated = await res.json();
 
@@ -106,7 +105,7 @@ useEffect(() => {
     }
 
     // backend returned updated asset object
-    updated.url = updated.url.startsWith("http") ? updated.url : `${BACKEND_BASE}${updated.url}`;
+    updated.url = updated.url.startsWith("http") ? updated.url : `${API_BASE_URL}${updated.url}`;
     setAssets(prev => prev.map(a => a.id === assetId ? { ...a, liked: !!updated.liked } : a));
     toast({ title: updated.liked ? "Added to Assets" : "Updated" });
   } catch (err) {
@@ -123,10 +122,10 @@ useEffect(() => {
     // optimistic UI change
     setAssets(prev => prev.map(a => a.id === asset.id ? { ...a, downloads: a.downloads + 1 } : a));
     try {
-      const res = await fetch(`${BACKEND_BASE}/api/assets/${asset.id}/increment-download`, { method: "POST", headers: { "Content-Type": "application/json", ...getAuthHeaders() } });
+      const res = await fetch(ASSET_ENDPOINTS.INCREMENT_DOWNLOAD(asset.id), { method: "POST", headers: { "Content-Type": "application/json", ...getAuthHeaders() } });
       if (!res.ok) throw new Error("increment failed");
       const updated = await res.json();
-      updated.url = updated.url.startsWith("http") ? updated.url : `${BACKEND_BASE}${updated.url}`;
+      updated.url = updated.url.startsWith("http") ? updated.url : `${API_BASE_URL}${updated.url}`;
       setAssets(prev => prev.map(a => a.id === asset.id ? { ...a, downloads: Number(updated.downloads || 0) } : a));
     } catch (err) {
       console.error(err);

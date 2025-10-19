@@ -1,7 +1,6 @@
 // src/hooks/useAuth.ts
 import { useState, useEffect, useCallback } from "react";
-
-const BACKEND_BASE = "https://python-genai-production.up.railway.app";
+import { AUTH_ENDPOINTS } from "@/config/api";
 
 export type User = {
   id: string;
@@ -34,7 +33,7 @@ export function useAuth() {
     }
     setLoading(true);
     try {
-      const res = await fetch(`${BACKEND_BASE}/api/auth/me`, {
+      const res = await fetch(AUTH_ENDPOINTS.ME, {
         headers: { "Content-Type": "application/json", ...authHeaders() },
       });
       if (!res.ok) {
@@ -73,7 +72,7 @@ export function useAuth() {
   }, [fetchMe]);
 
   const login = async (email: string, password: string) => {
-    const res = await fetch(`${BACKEND_BASE}/api/auth/login`, {
+    const res = await fetch(AUTH_ENDPOINTS.LOGIN, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
@@ -90,7 +89,7 @@ export function useAuth() {
   };
 
   const signup = async (email: string, password: string, first_name?: string, last_name?: string) => {
-    const res = await fetch(`${BACKEND_BASE}/api/auth/signup`, {
+    const res = await fetch(AUTH_ENDPOINTS.SIGNUP, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password, first_name, last_name }),
@@ -111,7 +110,7 @@ export function useAuth() {
   };
 
   const guest = async () => {
-    const res = await fetch(`${BACKEND_BASE}/api/auth/guest`, { method: "POST" });
+    const res = await fetch(AUTH_ENDPOINTS.GUEST, { method: "POST" });
     if (!res.ok) {
       const text = await res.text();
       throw new Error(text || "Guest signup failed");

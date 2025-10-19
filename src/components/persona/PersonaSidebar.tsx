@@ -15,6 +15,7 @@ import {
   Edit,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { PERSONA_ENDPOINTS } from "@/config/api";
 
 type Persona = {
   id: string;
@@ -34,7 +35,6 @@ interface PersonaSidebarProps {
   onPersonaChanged?: () => void; // optional callback so parent can react
 }
 
-const API_BASE = "https://python-genai-production.up.railway.app";
 const TOKEN_KEY = "access_token";
 
 export default function PersonaSidebar({ isOpen, onClose, isMobile, onPersonaChanged }: PersonaSidebarProps) {
@@ -60,7 +60,7 @@ export default function PersonaSidebar({ isOpen, onClose, isMobile, onPersonaCha
   const fetchPersonas = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/personas`, {
+      const res = await fetch(PERSONA_ENDPOINTS.LIST, {
         headers: { "Content-Type": "application/json", ...authHeader() },
       });
       if (!res.ok) {
@@ -108,7 +108,7 @@ export default function PersonaSidebar({ isOpen, onClose, isMobile, onPersonaCha
         icon: newPersona.icon,
         tags: newPersona.tags,
       };
-      const res = await fetch(`${API_BASE}/api/personas`, {
+      const res = await fetch(PERSONA_ENDPOINTS.CREATE, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeader() },
         body: JSON.stringify(payload),
@@ -142,7 +142,7 @@ export default function PersonaSidebar({ isOpen, onClose, isMobile, onPersonaCha
         icon: editingPersona.icon,
         tags: editingPersona.tags,
       };
-      const res = await fetch(`${API_BASE}/api/personas/${editingPersona.id}`, {
+      const res = await fetch(PERSONA_ENDPOINTS.UPDATE(editingPersona.id), {
         method: "PUT",
         headers: { "Content-Type": "application/json", ...authHeader() },
         body: JSON.stringify(payload),
@@ -169,7 +169,7 @@ export default function PersonaSidebar({ isOpen, onClose, isMobile, onPersonaCha
     }
     if (!confirm("Delete persona? This cannot be undone.")) return;
     try {
-      const res = await fetch(`${API_BASE}/api/personas/${id}`, {
+      const res = await fetch(PERSONA_ENDPOINTS.DELETE(id), {
         method: "DELETE",
         headers: { "Content-Type": "application/json", ...authHeader() },
       });
@@ -189,7 +189,7 @@ export default function PersonaSidebar({ isOpen, onClose, isMobile, onPersonaCha
 
   const activate = async (id: string) => {
     try {
-      const res = await fetch(`${API_BASE}/api/personas/${id}/activate`, {
+      const res = await fetch(PERSONA_ENDPOINTS.ACTIVATE(id), {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeader() },
       });
